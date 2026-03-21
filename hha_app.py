@@ -41,7 +41,7 @@ def parse_and_save(file_content):
         if p[0] == 'HI':
             curr_diag = p[1].split(':')[-1] if ':' in p[1] else p[1] 
         if p[0] == 'CLM':
-            cid, amt = p[1], float(p[2]) [cite: 3]
+            cid, amt = p[1], float(p[2]) 
             # In a full app, we'd grab the next DTP and SV1 segments here
             records.append((cid, curr_pat, curr_mi, "2026-03-15", amt, 20, curr_diag))
 
