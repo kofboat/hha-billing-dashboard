@@ -36,10 +36,10 @@ def parse_and_save(file_content):
         if not p or len(p) < 2: continue
         
         if p[0] == 'NM1' and p[1] == 'IL':
-            curr_pat = f"{p[3]} {p[4]}" [cite: 3, 6]
-            curr_mi = p[9] if len(p) > 9 else "" [cite: 3]
+            curr_pat = f"{p[3]} {p[4]}" 
+            curr_mi = p[9] if len(p) > 9 else ""
         if p[0] == 'HI':
-            curr_diag = p[1].split(':')[-1] if ':' in p[1] else p[1] [cite: 3, 7]
+            curr_diag = p[1].split(':')[-1] if ':' in p[1] else p[1] 
         if p[0] == 'CLM':
             cid, amt = p[1], float(p[2]) [cite: 3]
             # In a full app, we'd grab the next DTP and SV1 segments here
