@@ -83,6 +83,14 @@ try:
                 st.warning("All claims in this file are already in the database.")
 
     # --- DATA PROCESSING ---
+    # Define your expected column names as they appear in your Google Sheet
+expected_columns = [
+    "claim_id", "patient_name", "mi", "service_date", 
+    "amount", "units", "hours"
+]
+
+# Call the method correctly
+data = sheet.get_all_records(expected_headers=expected_columns)
     data = sheet.get_all_records()
     if data:
         df = pd.DataFrame(data)
