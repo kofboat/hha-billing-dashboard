@@ -38,7 +38,7 @@ def parse_and_save(file_content):
         if p[0] == 'NM1' and p[1] == 'IL':
             curr_pat = f"{p[3]} {p[4]}" 
             curr_mi = p[9] if len(p) > 9 else "" 
-            if p[0] == 'HI':
+        if p[0] == 'HI':
             curr_diag = p[1].split(':')[-1] if ':' in p[1] else p[1] 
         if p[0] == 'CLM':
             cid, amt = p[1], float(p[2]) 
