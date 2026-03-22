@@ -66,7 +66,7 @@ try:
     # --- SIDEBAR: UPLOAD ---
     with st.sidebar:
         # --- Sidebar Date Controls ---
-st.sidebar.header("Data Filters")
+        st.sidebar.header("Data Filters")
 
 # Option to bypass filters entirely
 show_all = st.sidebar.checkbox("Show All Historical Data", value=False)
