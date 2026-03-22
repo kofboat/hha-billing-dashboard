@@ -65,6 +65,22 @@ try:
     
     # --- SIDEBAR: UPLOAD ---
     with st.sidebar:
+        # --- Sidebar Date Controls ---
+st.sidebar.header("Data Filters")
+
+# Option to bypass filters entirely
+show_all = st.sidebar.checkbox("Show All Historical Data", value=False)
+
+if not show_all:
+    # Manual date range picker
+    today = datetime.date.today()
+    default_start = today - datetime.timedelta(days=30) # Default to last 30 days
+    
+    date_range = st.sidebar.date_input(
+        "Select Date Range",
+        value=(default_start, today),
+        key="date_range_picker"
+    )
         st.header("Upload Weekly Export")
         uploaded_file = st.file_uploader("Upload 837 .txt file from HHAExchange", type=['txt'])
         
