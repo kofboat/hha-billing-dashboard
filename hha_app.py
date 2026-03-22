@@ -70,9 +70,14 @@ try:
             else:
                 st.warning("All claims in this file are already in the database.")
 
-    # 2. DATA RETRIEVAL
+    # 2. DATA RETRIEVAL & CLEANING
     expected_headers = ["claim_id", "patient_name", "mi", "service_date", "amount", "units", "hours"]
-    data = sheet.get_all_records(expected_headers=expected_headers)
+    
+    try:
+        data = sheet.get_all_records(expected_headers=expected_headers)
+    except Exception as e:
+        st.error(f"Header Mismatch: {e}")
+        st.stop()
     
     if data:
         df = pd.DataFrame(data)
@@ -85,8 +90,8 @@ try:
         if show_all:
             df_filtered = df
         elif date_range and len(date_range) == 2:
-            start, end = date_range
-            df_filtered = df[(df['service_date'].dt.date >= start) & (df['service_date'].dt.date <= end)]
+            start, end = pd.to_datetime(date_range[0]), pd.to_datetime(date_range[1])
+            df_filtered = df[(df['service_date'] >= start) & (df['service_date'] <= end)]
         else:
             df_filtered = df
 
@@ -99,73 +104,49 @@ try:
 
         st.divider()
 
-       # --- 4. MONTHLY REVENUE BUCKET CHART ---
-    st.subheader("📈 Monthly Revenue Trend")
-
-    if not df.empty:
-        # Create a clean copy for the trend
+        # 4. MONTHLY REVENUE TREND (Aggregated)
+        st.subheader("📈 Monthly Revenue Trend")
         df_trend = df.copy()
-        
-        # 1. Force all dates to the first of the month
-        # This creates the 'bucket'
-        df_trend['month_start'] = df_trend['service_date'].dt.to_period('M').dt.to_timestamp()
-        
-        # 2. AGGREGATE: This is the missing step. 
-        # We must sum the amounts so there is only ONE row per month.
-        monthly_summary = df_trend.groupby('month_start')['amount'].sum().reset_index()
-        
-        # 3. Sort by date to ensure the line flows correctly
-        monthly_summary = monthly_summary.sort_values('month_start')
-    
-        # 4. Create the line chart using the summarized data
+        df_trend['month'] = df_trend['service_date'].dt.to_period('M').dt.to_timestamp()
+        monthly_revenue = df_trend.groupby('month')['amount'].sum().reset_index().sort_values('month')
+
         fig_trend = px.line(
-            monthly_summary, 
-            x='month_start', 
+            monthly_revenue, 
+            x='month', 
             y='amount', 
             markers=True, 
-            line_shape="linear", # Using linear for clear bucket-to-bucket jumps
+            line_shape="spline", 
             template="plotly_white",
-            labels={'amount': 'Total Revenue ($)', 'month_start': 'Month'},
-            color_discrete_sequence=["#2ecc71"]
+            color_discrete_sequence=["#2ecc71"],
+            labels={'amount': 'Revenue ($)', 'month': 'Month'}
         )
-        
-        # Force X-axis to show month names clearly
         fig_trend.update_xaxes(dtick="M1", tickformat="%b %Y")
+        st.plotly_chart(fig_trend, use_container_width=True)
+
+        st.divider()
+
+        # 5. PATIENT ANALYSIS
+        col1, col2 = st.columns(2)
+        with col1:
+            st.subheader("👥 Top 5 Patients by Revenue")
+            top_5 = df_filtered.groupby("patient_name")["amount"].sum().nlargest(5).reset_index()
+            fig_pie = px.pie(top_5, values='amount', names='patient_name', hole=0.4,
+                             color_discrete_sequence=px.colors.sequential.Greens_r)
+            st.plotly_chart(fig_pie, use_container_width=True)
         
-        st.plotly_chart(fig_trend, use_container_width=True) # 4. MONTHLY REVENUE BUCKET CHART
-        st.subheader("📈 Monthly Revenue Trend")
-            df_monthly = df.copy()
-            df_monthly['month'] = df_monthly['service_date'].dt.to_period('M').dt.to_timestamp()
-            monthly_revenue = df_monthly.groupby('month')['amount'].sum().reset_index()
-    
-            fig_trend = px.line(monthly_revenue, x='month', y='amount', markers=True, 
-                                line_shape="spline", template="plotly_white",
-                                color_discrete_sequence=["#2ecc71"])
-            st.plotly_chart(fig_trend, use_container_width=True)
-    
-            # 5. PATIENT ANALYSIS
-            col1, col2 = st.columns(2)
-            with col1:
-                st.subheader("👥 Top 5 Patients by Revenue")
-                top_5 = df_filtered.groupby("patient_name")["amount"].sum().nlargest(5).reset_index()
-                fig_pie = px.pie(top_5, values='amount', names='patient_name', hole=0.4,
-                                 color_discrete_sequence=px.colors.sequential.Greens_r)
-                st.plotly_chart(fig_pie, use_container_width=True)
-            
-            with col2:
-                st.subheader("📊 Hours Billed by Patient")
-                patient_hours = df_filtered.groupby("patient_name")["hours"].sum().reset_index()
-                fig_bar = px.bar(patient_hours, x="patient_name", y="hours", 
-                                 template="plotly_white", color_discrete_sequence=["#27ae60"])
-                st.plotly_chart(fig_bar, use_container_width=True)
-    
-            # 6. AUDIT LOG
-            st.subheader("Full Billing Audit Log")
-            st.dataframe(df_filtered.sort_values("service_date", ascending=False), use_container_width=True)
+        with col2:
+            st.subheader("📊 Hours Billed by Patient")
+            patient_hours = df_filtered.groupby("patient_name")["hours"].sum().reset_index()
+            fig_bar = px.bar(patient_hours, x="patient_name", y="hours", 
+                             template="plotly_white", color_discrete_sequence=["#27ae60"])
+            st.plotly_chart(fig_bar, use_container_width=True)
+
+        # 6. AUDIT LOG
+        st.subheader("Full Billing Audit Log")
+        st.dataframe(df_filtered.sort_values("service_date", ascending=False), use_container_width=True)
 
     else:
         st.info("The database is currently empty. Please upload an HHAExchange file.")
 
 except Exception as e:
-    st.error(f"Configuration or Data Error: {e}")
-    st.info("Check your Google Sheet headers and Streamlit Secrets.")
+    st.error(f"App Error: {e}")
