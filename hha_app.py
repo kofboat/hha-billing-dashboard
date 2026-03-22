@@ -83,21 +83,24 @@ try:
                 st.warning("All claims in this file are already in the database.")
 
     
- # --- DATA PROCESSING ---
-try:
-    # Define your expected column names
-    expected_columns = [
-        "claim_id", "patient_name", "mi", "service_date", 
-        "amount", "units", "hours"
-    ]
-    
-    # Fetch data and validate headers simultaneously
-    data = sheet.get_all_records(expected_headers=expected_columns)
-    
-except Exception as e:
-    st.error(f"Data Format Error: The Google Sheet headers do not match the expected format.")
-    st.info(f"Expected: {', '.join(expected_columns)}")
-    st.stop() # Stops the rest of the app from running with bad data
+# --- DATA PROCESSING ---
+    try:
+        # 1. Define the exact headers expected in Row 1 of the Google Sheet
+        expected_columns = [
+            "claim_id", "patient_name", "mi", "service_date", 
+            "amount", "units", "hours"
+        ]
+        
+        # 2. Fetch data and validate headers simultaneously
+        data = sheet.get_all_records(expected_headers=expected_columns)
+        
+        # 3. Add a "Last Synced" notice for the user
+        st.sidebar.caption(f"Last synced: {datetime.now().strftime('%I:%M %p')}")
+
+    except Exception as e:
+        st.error("🚨 **Data Format Error**")
+        st.info(f"The Google Sheet headers must match: `{', '.join(expected_columns)}`")
+        st.stop() # Prevents further errors in the metrics section below
         if data:
         df = pd.DataFrame(data)
         df['service_date'] = pd.to_datetime(df['service_date'])
