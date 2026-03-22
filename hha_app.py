@@ -91,7 +91,7 @@ except Exception as e:
     st.header("Upload Weekly Export")
     uploaded_file = st.file_uploader("Upload 837 .txt file from HHAExchange", type=['txt'])
         
-        if uploaded_file:
+    if uploaded_file:
             content = uploaded_file.read().decode("utf-8")
             parsed_data = parse_837_to_records(content)
             
@@ -99,11 +99,11 @@ except Exception as e:
             existing_ids = sheet.col_values(1)
             unique_rows = [r for r in parsed_data if r[0] not in existing_ids]
             
-            if unique_rows:
+    if unique_rows:
                 sheet.append_rows(unique_rows)
                 st.success(f"Successfully synced {len(unique_rows)} new claims.")
-            else:
-                st.warning("All claims in this file are already in the database.")
+    else:
+        st.warning("All claims in this file are already in the database.")
 
     
 # --- DATA PROCESSING ---
