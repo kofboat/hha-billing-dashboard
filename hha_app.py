@@ -70,16 +70,16 @@ try:
         # Option to bypass filters entirely
         show_all = st.checkbox("Show All Historical Data", value=False)
 
-        if not show_all:
+   if not show_all:
     # Use datetime.now().date() instead of datetime.date.today()
-    today = datetime.now().date() 
-    default_start = today - timedelta(days=30)
+        today = datetime.now().date() 
+        default_start = today - timedelta(days=30)
     
-    date_range = st.date_input(
+        date_range = st.date_input(
         "Select Date Range",
         value=(default_start, today),
         key="date_range_picker"
-    )
+        )
             
            
 
