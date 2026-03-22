@@ -88,7 +88,7 @@ try:
 except Exception as e:
     st.error(f"Failed to connect to Google Sheets: {e}")
     st.stop() # Stops the app here so it doesn't crash further down
-        st.header("Upload Weekly Export")
+    st.header("Upload Weekly Export")
         uploaded_file = st.file_uploader("Upload 837 .txt file from HHAExchange", type=['txt'])
         
         if uploaded_file:
