@@ -133,7 +133,7 @@ try:
         fig_trend.update_xaxes(dtick="M1", tickformat="%b %Y")
         
         st.plotly_chart(fig_trend, use_container_width=True) # 4. MONTHLY REVENUE BUCKET CHART
-            st.subheader("📈 Monthly Revenue Trend")
+        st.subheader("📈 Monthly Revenue Trend")
             df_monthly = df.copy()
             df_monthly['month'] = df_monthly['service_date'].dt.to_period('M').dt.to_timestamp()
             monthly_revenue = df_monthly.groupby('month')['amount'].sum().reset_index()
