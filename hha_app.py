@@ -85,42 +85,53 @@ try:
             else:
                 st.warning("No new claims found.")
 
-    # --- DATA PROCESSING ---
-    expected_columns = ["claim_id", "patient_name", "mi", "service_date", "amount", "units", "hours"]
-    raw_data = sheet.get_all_records(expected_headers=expected_columns)
-    
-    if raw_data:
-        df = pd.DataFrame(raw_data)
-        df['service_date'] = pd.to_datetime(df['service_date']).dt.date
-        
-        # Apply Filters
-        if show_all:
-            df_filtered = df
-        elif date_range and len(date_range) == 2:
-            df_filtered = df[(df['service_date'] >= date_range[0]) & (df['service_date'] <= date_range[1])]
-        else:
-            df_filtered = df
+  # --- CALCULATIONS ---
+current_year = datetime.now().year
+# Filter full dataset for the current year to get YTD
+df['service_date'] = pd.to_datetime(df['service_date'])
+df_ytd = df[df['service_date'].dt.year == current_year]
+ytd_total = df_ytd['amount'].sum()
 
-        # --- DASHBOARD METRICS ---
-        if not df_filtered.empty:
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Period Revenue", f"${df_filtered['amount'].sum():,.2f}")
-            m2.metric("Period Hours", f"{df_filtered['hours'].sum():.2f} hrs")
-            m3.metric("Total History", f"${df['amount'].sum():,.2f}")
+# --- TOP METRICS ---
+m1, m2, m3, m4 = st.columns(4)
+m1.metric("Period Revenue", f"${df_filtered['amount'].sum():,.2f}")
+m2.metric("Period Hours", f"{df_filtered['hours'].sum():.2f} hrs")
+m3.metric("YTD Total", f"${ytd_total:,.2f}")
+m4.metric("Total History", f"${df['amount'].sum():,.2f}")
 
-            # Charts
-            st.subheader("Billing Analysis")
-            fig = px.bar(df_filtered.groupby("patient_name")["hours"].sum().reset_index(), 
-                         x="patient_name", y="hours", color="hours", template="plotly_white")
-            st.plotly_chart(fig, use_container_width=True)
+st.divider()
 
-            st.subheader("Audit Log")
-            st.dataframe(df_filtered.sort_values("service_date", ascending=False), use_container_width=True)
-        else:
-            st.info("No data found for the selected date range.")
-    else:
-        st.info("The database is currently empty. Please upload a file.")
+# --- MONTHLY REVENUE TREND (Full Width) ---
+st.subheader("📈 Monthly Revenue Trend")
+df_trend = df.copy()
+df_trend['month'] = df_trend['service_date'].dt.to_period('M').dt.to_timestamp()
+monthly_rev = df_trend.groupby('month')['amount'].sum().reset_index()
 
-except Exception as e:
+fig_trend = px.line(monthly_rev, x='month', y='amount', markers=True, 
+                    line_shape="spline", template="plotly_white",
+                    color_discrete_sequence=["#2ecc71"])
+st.plotly_chart(fig_trend, use_container_width=True)
+
+st.divider()
+
+# --- PATIENT ANALYSIS (Split View) ---
+col_left, col_right = st.columns(2)
+
+with col_left:
+    st.subheader("👥 Top 5 Patients by Revenue")
+    top_5 = df_filtered.groupby("patient_name")["amount"].sum().nlargest(5).reset_index()
+    fig_pie = px.pie(top_5, values='amount', names='patient_name', 
+                     hole=0.4, template="plotly_white",
+                     color_discrete_sequence=px.colors.sequential.Greens_r)
+    st.plotly_chart(fig_pie, use_container_width=True)
+
+with col_right:
+    st.subheader("📊 Hours Billed by Patient")
+    fig_hours = px.bar(df_filtered.groupby("patient_name")["hours"].sum().reset_index(), 
+                       x="patient_name", y="hours", color="hours", 
+                       template="plotly_white", color_continuous_scale="Greens")
+    st.plotly_chart(fig_hours, use_container_width=True)
+
+
     st.error(f"Error: {e}")
     st.info("Please check your Google Sheet headers and Streamlit Secrets.")
