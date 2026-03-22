@@ -63,24 +63,31 @@ st.title("🏥 Comfort Hands: Weekly Operations Dashboard")
 try:
     sheet = get_gsheet()
     
-    # --- SIDEBAR: UPLOAD ---
+    # --- SIDEBAR: UPLOAD & FILTERS ---
     with st.sidebar:
-        # --- Sidebar Date Controls ---
-        st.sidebar.header("Data Filters")
+        st.header("Data Filters")
 
-# Option to bypass filters entirely
-show_all = st.sidebar.checkbox("Show All Historical Data", value=False)
+        # Option to bypass filters entirely
+        show_all = st.checkbox("Show All Historical Data", value=False)
 
-if not show_all:
-    # Manual date range picker
-    today = datetime.date.today()
-    default_start = today - datetime.timedelta(days=30) # Default to last 30 days
-    
-    date_range = st.sidebar.date_input(
-        "Select Date Range",
-        value=(default_start, today),
-        key="date_range_picker"
-    )
+        if not show_all:
+            # Manual date range picker
+            today = datetime.date.today()
+            default_start = today - datetime.timedelta(days=30)
+            
+            date_range = st.date_input(
+                "Select Date Range",
+                value=(default_start, today),
+                key="date_range_picker"
+            )
+
+        st.divider() # Adds a clean line between filters and upload
+        st.header("Upload Weekly Export")
+        uploaded_file = st.file_uploader("Upload 837 .txt file from HHAExchange", type=['txt'])
+
+except Exception as e:
+    st.error(f"Failed to connect to Google Sheets: {e}")
+    st.stop() # Stops the app here so it doesn't crash further down
         st.header("Upload Weekly Export")
         uploaded_file = st.file_uploader("Upload 837 .txt file from HHAExchange", type=['txt'])
         
