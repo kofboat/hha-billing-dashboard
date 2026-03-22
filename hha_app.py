@@ -99,7 +99,40 @@ try:
 
         st.divider()
 
-        # 4. MONTHLY REVENUE BUCKET CHART
+       # --- 4. MONTHLY REVENUE BUCKET CHART ---
+st.subheader("📈 Monthly Revenue Trend")
+
+if not df.empty:
+    # Create a clean copy for the trend
+    df_trend = df.copy()
+    
+    # 1. Force all dates to the first of the month
+    # This creates the 'bucket'
+    df_trend['month_start'] = df_trend['service_date'].dt.to_period('M').dt.to_timestamp()
+    
+    # 2. AGGREGATE: This is the missing step. 
+    # We must sum the amounts so there is only ONE row per month.
+    monthly_summary = df_trend.groupby('month_start')['amount'].sum().reset_index()
+    
+    # 3. Sort by date to ensure the line flows correctly
+    monthly_summary = monthly_summary.sort_values('month_start')
+
+    # 4. Create the line chart using the summarized data
+    fig_trend = px.line(
+        monthly_summary, 
+        x='month_start', 
+        y='amount', 
+        markers=True, 
+        line_shape="linear", # Using linear for clear bucket-to-bucket jumps
+        template="plotly_white",
+        labels={'amount': 'Total Revenue ($)', 'month_start': 'Month'},
+        color_discrete_sequence=["#2ecc71"]
+    )
+    
+    # Force X-axis to show month names clearly
+    fig_trend.update_xaxes(dtick="M1", tickformat="%b %Y")
+    
+    st.plotly_chart(fig_trend, use_container_width=True) # 4. MONTHLY REVENUE BUCKET CHART
         st.subheader("📈 Monthly Revenue Trend")
         df_monthly = df.copy()
         df_monthly['month'] = df_monthly['service_date'].dt.to_period('M').dt.to_timestamp()
