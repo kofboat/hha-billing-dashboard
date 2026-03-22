@@ -102,8 +102,8 @@ try:
         st.info(f"The Google Sheet headers must match: `{', '.join(expected_columns)}`")
         st.stop() # Prevents further errors in the metrics section below
         if data:
-        df = pd.DataFrame(data)
-        df['service_date'] = pd.to_datetime(df['service_date'])
+            df = pd.DataFrame(data)
+            df['service_date'] = pd.to_datetime(df['service_date'])
         
         # --- TOP METRICS (Week-over-Week) ---
         latest_date = df['service_date'].max()
