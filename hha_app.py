@@ -48,7 +48,7 @@ def parse_837_to_records(file_content):
     return records
 
 # --- APP UI START ---
-st.title("🏥 Comfort Hands: Weekly Operations Dashboard")
+st.title("🏥 Comfort Hands: Operations Dashboard")
 
 # Initialize global variables
 df = pd.DataFrame()
