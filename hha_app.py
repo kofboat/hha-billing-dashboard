@@ -91,8 +91,7 @@ expected_columns = [
 
 # Call the method correctly
 data = sheet.get_all_records(expected_headers=expected_columns)
-    data = sheet.get_all_records()
-    if data:
+        if data:
         df = pd.DataFrame(data)
         df['service_date'] = pd.to_datetime(df['service_date'])
         
