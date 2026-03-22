@@ -91,10 +91,32 @@ try:
         m4.metric("Total History", f"${df['amount'].sum():,.2f}")
 
         st.subheader("📈 Monthly Revenue Trend")
-        df_trend = df.copy()
-        df_trend['month'] = pd.to_datetime(df_trend['service_date']).dt.to_period('M').dt.to_timestamp()
-        fig = px.line(df_trend.groupby('month')['amount'].sum().reset_index(), x='month', y='amount', markers=True)
-        st.plotly_chart(fig, use_container_width=True)
+
+if not df.empty:
+    # 1. Create a copy and ensure service_date is datetime
+    df_trend = df.copy()
+    df_trend['service_date'] = pd.to_datetime(df_trend['service_date'])
+
+    # 2. Force every date to the 1st of its month to create one "bucket" per month
+    df_trend['month_bucket'] = df_trend['service_date'].dt.to_period('M').dt.to_timestamp()
+
+    # 3. Sum the amounts by that monthly bucket
+    monthly_revenue = df_trend.groupby('month_bucket')['amount'].sum().reset_index()
+
+    # 4. Create the chart
+    fig_trend = px.line(
+        monthly_revenue, 
+        x='month_bucket', 
+        y='amount', 
+        markers=True,
+        title="Total Revenue Grouped by Month",
+        labels={'amount': 'Total Monthly Revenue ($)', 'month_bucket': 'Month'},
+        template="plotly_white"
+    )
+    
+    # Improve the look of the line
+    fig_trend.update_traces(line_color='#2ecc71', line_width=3)
+    st.plotly_chart(fig_trend, use_container_width=True
 
         st.subheader("👥 Top 5 Patients by Revenue")
         top_5 = df_filtered.groupby("patient_name")["amount"].sum().nlargest(5).reset_index()
