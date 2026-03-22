@@ -71,15 +71,17 @@ try:
         show_all = st.checkbox("Show All Historical Data", value=False)
 
         if not show_all:
-            # Manual date range picker
-            today = datetime.date.today()
-            default_start = today - datetime.timedelta(days=30)
+    # Use datetime.now().date() instead of datetime.date.today()
+    today = datetime.now().date() 
+    default_start = today - timedelta(days=30)
+    
+    date_range = st.date_input(
+        "Select Date Range",
+        value=(default_start, today),
+        key="date_range_picker"
+    )
             
-            date_range = st.date_input(
-                "Select Date Range",
-                value=(default_start, today),
-                key="date_range_picker"
-            )
+           
 
         st.divider() # Adds a clean line between filters and upload
         st.header("Upload Weekly Export")
