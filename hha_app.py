@@ -100,9 +100,9 @@ try:
         st.divider()
 
        # --- 4. MONTHLY REVENUE BUCKET CHART ---
-st.subheader("📈 Monthly Revenue Trend")
+    st.subheader("📈 Monthly Revenue Trend")
 
-if not df.empty:
+    if not df.empty:
     # Create a clean copy for the trend
     df_trend = df.copy()
     
