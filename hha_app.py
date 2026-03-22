@@ -9,12 +9,14 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="Comfort Hands Billing Portal", layout="wide")
 
 def get_gsheet():
+    """Connects to Google Sheets using Streamlit Secrets."""
     scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
     client = gspread.authorize(creds)
     return client.open("HHA_Billing_History").sheet1
 
 def parse_837_to_records(file_content):
+    """Parses EDI 837 text into structured list."""
     segments = file_content.split('~')
     records = []
     curr_pat, curr_mi = "", ""
@@ -43,14 +45,15 @@ st.title("🏥 Comfort Hands: Operations Dashboard")
 try:
     sheet = get_gsheet()
     
-    # 1. SIDEBAR
+    # 1. SIDEBAR: FILTERS & UPLOADS
     with st.sidebar:
         st.header("Data Filters")
         show_all = st.checkbox("Show All Historical Data", value=False)
         date_range = None
         if not show_all:
             today = datetime.now().date()
-            date_range = st.date_input("Select Date Range", value=(today - timedelta(days=30), today))
+            default_start = today - timedelta(days=30)
+            date_range = st.date_input("Select Date Range", value=(default_start, today))
 
         st.divider()
         st.header("Upload Weekly Export")
@@ -64,30 +67,26 @@ try:
                 sheet.append_rows(unique_rows)
                 st.success(f"Synced {len(unique_rows)} new claims!")
                 st.rerun()
+            else:
+                st.warning("All claims in this file are already in the database.")
 
-# --- DATA PROCESSING ---
-try:
-    expected_columns = ["claim_id", "patient_name", "mi", "service_date", "amount", "units", "hours"]
-    raw_data = sheet.get_all_records(expected_headers=expected_columns)
+    # 2. DATA RETRIEVAL
+    expected_headers = ["claim_id", "patient_name", "mi", "service_date", "amount", "units", "hours"]
+    data = sheet.get_all_records(expected_headers=expected_headers)
     
-    if raw_data:
-        df = pd.DataFrame(raw_data)
-        # Ensure service_date is a datetime object for calculations
+    if data:
+        df = pd.DataFrame(data)
         df['service_date'] = pd.to_datetime(df['service_date'])
+        
+        # Calculate YTD (Current Year)
+        ytd_total = df[df['service_date'].dt.year == datetime.now().year]['amount'].sum()
 
-        # 1. YTD CALCULATION
-        current_year = datetime.now().year
-        df_ytd = df[df['service_date'].dt.year == current_year]
-        ytd_total = df_ytd['amount'].sum()
-
-        # 2. FILTERING LOGIC
-        # Convert back to date for comparison with the sidebar picker
-        df['compare_date'] = df['service_date'].dt.date
+        # Apply Sidebar Filters
         if show_all:
             df_filtered = df
         elif date_range and len(date_range) == 2:
             start, end = date_range
-            df_filtered = df[(df['compare_date'] >= start) & (df['compare_date'] <= end)]
+            df_filtered = df[(df['service_date'].dt.date >= start) & (df['service_date'].dt.date <= end)]
         else:
             df_filtered = df
 
@@ -98,29 +97,42 @@ try:
         m3.metric("YTD Total", f"${ytd_total:,.2f}")
         m4.metric("Total History", f"${df['amount'].sum():,.2f}")
 
-        # 4. MONTHLY REVENUE BUCKET CHART
         st.divider()
+
+        # 4. MONTHLY REVENUE BUCKET CHART
         st.subheader("📈 Monthly Revenue Trend")
-        
-        # Grouping into one bucket per month
         df_monthly = df.copy()
         df_monthly['month'] = df_monthly['service_date'].dt.to_period('M').dt.to_timestamp()
         monthly_revenue = df_monthly.groupby('month')['amount'].sum().reset_index()
 
-        fig_trend = px.line(
-            monthly_revenue, 
-            x='month', 
-            y='amount', 
-            markers=True,
-            title="Revenue Grouped by Month",
-            template="plotly_white",
-            color_discrete_sequence=["#2ecc71"]
-        )
+        fig_trend = px.line(monthly_revenue, x='month', y='amount', markers=True, 
+                            line_shape="spline", template="plotly_white",
+                            color_discrete_sequence=["#2ecc71"])
         st.plotly_chart(fig_trend, use_container_width=True)
 
+        # 5. PATIENT ANALYSIS
+        col1, col2 = st.columns(2)
+        with col1:
+            st.subheader("👥 Top 5 Patients by Revenue")
+            top_5 = df_filtered.groupby("patient_name")["amount"].sum().nlargest(5).reset_index()
+            fig_pie = px.pie(top_5, values='amount', names='patient_name', hole=0.4,
+                             color_discrete_sequence=px.colors.sequential.Greens_r)
+            st.plotly_chart(fig_pie, use_container_width=True)
+        
+        with col2:
+            st.subheader("📊 Hours Billed by Patient")
+            patient_hours = df_filtered.groupby("patient_name")["hours"].sum().reset_index()
+            fig_bar = px.bar(patient_hours, x="patient_name", y="hours", 
+                             template="plotly_white", color_discrete_sequence=["#27ae60"])
+            st.plotly_chart(fig_bar, use_container_width=True)
+
+        # 6. AUDIT LOG
+        st.subheader("Full Billing Audit Log")
+        st.dataframe(df_filtered.sort_values("service_date", ascending=False), use_container_width=True)
+
     else:
-        st.info("The database is currently empty. Please upload a file.")
+        st.info("The database is currently empty. Please upload an HHAExchange file.")
 
 except Exception as e:
-    st.error(f"Data Processing Error: {e}")
-    st.info("Check if your Google Sheet headers match the expected columns.")
+    st.error(f"Configuration or Data Error: {e}")
+    st.info("Check your Google Sheet headers and Streamlit Secrets.")
