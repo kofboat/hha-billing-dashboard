@@ -65,65 +65,62 @@ try:
                 st.success(f"Synced {len(unique_rows)} new claims!")
                 st.rerun()
 
-    # 2. DATA PROCESSING
+# --- DATA PROCESSING ---
+try:
     expected_columns = ["claim_id", "patient_name", "mi", "service_date", "amount", "units", "hours"]
     raw_data = sheet.get_all_records(expected_headers=expected_columns)
     
     if raw_data:
         df = pd.DataFrame(raw_data)
-        df['service_date'] = pd.to_datetime(df['service_date']).dt.date
-        
-        # Filtering
+        # Ensure service_date is a datetime object for calculations
+        df['service_date'] = pd.to_datetime(df['service_date'])
+
+        # 1. YTD CALCULATION
+        current_year = datetime.now().year
+        df_ytd = df[df['service_date'].dt.year == current_year]
+        ytd_total = df_ytd['amount'].sum()
+
+        # 2. FILTERING LOGIC
+        # Convert back to date for comparison with the sidebar picker
+        df['compare_date'] = df['service_date'].dt.date
         if show_all:
             df_filtered = df
         elif date_range and len(date_range) == 2:
-            df_filtered = df[(df['service_date'] >= date_range[0]) & (df['service_date'] <= date_range[1])]
+            start, end = date_range
+            df_filtered = df[(df['compare_date'] >= start) & (df['compare_date'] <= end)]
         else:
             df_filtered = df
 
-        # 3. METRICS & CHARTS
-        ytd_total = df[pd.to_datetime(df['service_date']).dt.year == datetime.now().year]['amount'].sum()
-        
+        # 3. TOP METRICS
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Period Revenue", f"${df_filtered['amount'].sum():,.2f}")
         m2.metric("Period Hours", f"{df_filtered['hours'].sum():.2f} hrs")
         m3.metric("YTD Total", f"${ytd_total:,.2f}")
         m4.metric("Total History", f"${df['amount'].sum():,.2f}")
 
+        # 4. MONTHLY REVENUE BUCKET CHART
+        st.divider()
         st.subheader("📈 Monthly Revenue Trend")
+        
+        # Grouping into one bucket per month
+        df_monthly = df.copy()
+        df_monthly['month'] = df_monthly['service_date'].dt.to_period('M').dt.to_timestamp()
+        monthly_revenue = df_monthly.groupby('month')['amount'].sum().reset_index()
 
-if not df.empty:
-    # 1. Create a copy and ensure service_date is datetime
-    df_trend = df.copy()
-    df_trend['service_date'] = pd.to_datetime(df_trend['service_date'])
-
-    # 2. Force every date to the 1st of its month to create one "bucket" per month
-    df_trend['month_bucket'] = df_trend['service_date'].dt.to_period('M').dt.to_timestamp()
-
-    # 3. Sum the amounts by that monthly bucket
-    monthly_revenue = df_trend.groupby('month_bucket')['amount'].sum().reset_index()
-
-    # 4. Create the chart
-    fig_trend = px.line(
-        monthly_revenue, 
-        x='month_bucket', 
-        y='amount', 
-        markers=True,
-        title="Total Revenue Grouped by Month",
-        labels={'amount': 'Total Monthly Revenue ($)', 'month_bucket': 'Month'},
-        template="plotly_white"
-    )
-    
-    # Improve the look of the line
-    fig_trend.update_traces(line_color='#2ecc71', line_width=3)
-    st.plotly_chart(fig_trend, use_container_width=True
-
-        st.subheader("👥 Top 5 Patients by Revenue")
-        top_5 = df_filtered.groupby("patient_name")["amount"].sum().nlargest(5).reset_index()
-        st.plotly_chart(px.pie(top_5, values='amount', names='patient_name', hole=0.4), use_container_width=True)
+        fig_trend = px.line(
+            monthly_revenue, 
+            x='month', 
+            y='amount', 
+            markers=True,
+            title="Revenue Grouped by Month",
+            template="plotly_white",
+            color_discrete_sequence=["#2ecc71"]
+        )
+        st.plotly_chart(fig_trend, use_container_width=True)
 
     else:
-        st.info("Upload a file to begin.")
+        st.info("The database is currently empty. Please upload a file.")
 
 except Exception as e:
-    st.error(f"Dashboard Error: {e}")
+    st.error(f"Data Processing Error: {e}")
+    st.info("Check if your Google Sheet headers match the expected columns.")
