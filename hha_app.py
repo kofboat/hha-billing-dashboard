@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="Comfort Hands Billing Portal", layout="wide")
 
 def get_gsheet():
+    """Connects to Google Sheets using Streamlit Secrets."""
     scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
     client = gspread.authorize(creds)
@@ -31,7 +32,18 @@ try:
         uploaded_file = st.file_uploader("Upload HHA CSV Export", type=['csv'])
         
         if uploaded_file and st.button("🚀 Sync CSV to Database"):
-            csv_df = pd.read_csv(uploaded_file)
+            # AUTOMATIC HEADER DETECTION
+            # Read the file to find where the table actually starts
+            content = uploaded_file.getvalue().decode("utf-8").splitlines()
+            header_idx = 0
+            for i, line in enumerate(content):
+                if "GroupByText" in line:
+                    header_idx = i
+                    break
+            
+            # Re-read the CSV skipping the top metadata rows
+            uploaded_file.seek(0)
+            csv_df = pd.read_csv(uploaded_file, skiprows=header_idx)
             
             # Map HHAExchange Headers to Dashboard Schema
             clean_csv = pd.DataFrame()
@@ -43,24 +55,23 @@ try:
             clean_csv['units'] = csv_df['Billed_Unit']
             clean_csv['hours'] = csv_df['Billed_Unit'] * 0.25
             
-            # Deduplication
+            # Deduplication Check
             existing_ids = sheet.col_values(1)
             to_add = clean_csv[~clean_csv['claim_id'].isin(existing_ids)].values.tolist()
 
             if to_add:
                 sheet.append_rows(to_add)
-                st.success(f"Added {len(to_add)} records!")
+                st.success(f"Successfully added {len(to_add)} new records!")
                 st.rerun()
             else:
                 st.info("No new unique records found.")
 
     # --- DATA RETRIEVAL ---
-    # We pull all data and clean headers manually to prevent the 'Application Error'
     raw_records = sheet.get_all_records()
     
     if raw_records:
         df = pd.DataFrame(raw_records)
-        df.columns = [c.strip() for c in df.columns] # Remove hidden spaces
+        df.columns = [c.strip() for c in df.columns]
         df['service_date'] = pd.to_datetime(df['service_date'])
         
         # Filtering
@@ -96,7 +107,7 @@ try:
         st.plotly_chart(px.pie(top_5, values='amount', names='patient_name', hole=0.4, color_discrete_sequence=px.colors.sequential.Greens_r), use_container_width=True)
 
     else:
-        st.warning("Database is empty. Upload a CSV to begin.")
+        st.warning("Database is empty. Upload your HHA CSV to begin.")
 
 except Exception as e:
     st.error(f"System Error: {e}")
